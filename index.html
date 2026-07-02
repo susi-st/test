@@ -1,197 +1,825 @@
-<!-- ... existing code ... -->
-            const [gasUrl, setGasUrl] = useState("https://script.google.com/macros/s/AKfycbykbyUihDBPDWSOfGs-GBRl79xzKfXEAW5YhAkIQb6x3AB7_h0qQQn_D4X447tO-CVFWw/exec");
-            const [geminiApiKey, setGeminiApiKey] = useState("");
-            const [classCode, setClassCode] = useState("805");
-            const [isSummarizing, setIsSummarizing] = useState(false);
-            const [isExporting, setIsExporting] = useState(false); // 新增：控制匯出時的 Loading 狀態
+import { useState, useEffect, useRef } from "react";
 
-            // ================= 獎懲系統狀態 =================
-<!-- ... existing code ... -->
-            const handleSaveUrl = () => {
-                localStorage.setItem('gasUrl', gasUrl);
-                localStorage.setItem('geminiApiKey', geminiApiKey);
-                localStorage.setItem('classCode', classCode);
-                setShowSettings(false);
-                alert("設定已儲存！");
-            };
+const REWARD_RULES = {
+  嘉獎: [
+    "服裝儀容經常整潔，合於規定，足為同學模範者。",
+    "禮儀周到足為同學模範者。",
+    "參加團體活動確有成績表現者。",
+    "節儉樸素足為同學模範者。",
+    "與同學互助合作者。",
+    "值勤特別盡職者。",
+    "主動為公服務者。",
+    "勸告同學向善者。",
+    "運動比賽時體育道德表現優良者。",
+    "領導同學為團體服務者。",
+    "愛護公物有具體事蹟者。",
+    "生活言行較前進步，有事實表現者。",
+    "在車船上讓座師長、老弱、婦孺者。",
+    "其他優良行為合於記嘉獎者。",
+  ],
+  警告: [
+    "參加公眾或團體活動等，影響活動秩序、活動進行或他人權益，情節輕微。",
+    "言行涉及公然侮辱、誹謗或恐嚇，情節輕微。",
+    "拾物不送招領，據為己有，情節輕微。",
+    "值勤未盡職責，影響他人權益或工作之推動。",
+    "因過失毀損公物而不主動報告。",
+    "故意毀損公物，情節輕微。",
+    "違反著作權法，情節輕微。",
+    "在公共場所高聲喧嚷影響秩序。",
+    "未經同意偷窺他人訊息或文件，情節輕微。",
+    "未遵守道路交通安全規則，情節輕微。",
+    "違反上課規定，影響教學秩序或他人學習，屢勸不聽。",
+    "攜帶或使用違法或違禁物品，情節輕微。",
+    "亂丟垃圾或其他破壞環境衛生行為，經勸導仍未改正。",
+    "以不實言論誤導師長，致未能妥善處理事件。",
+    "不服從師長或糾察隊或幹部因執行公務之糾正，情節輕微。",
+    "違反學校校園行動載具使用管理規範，情節輕微。",
+  ],
+  小過: [
+    "參加公眾或團體活動，影響活動秩序，經勸導仍未改正。",
+    "言行涉及公然侮辱、誹謗或恐嚇，經糾正仍未改正。",
+    "拾物不送招領，據為己有，情節重大。",
+    "擔任班級幹部未盡職責，影響工作推展，情節重大。",
+    "故意毀損公物，屢勸仍再犯且情節尚非重大。",
+    "違反著作權法，屢勸仍再犯且情節尚非重大。",
+    "蓄意違反集會秩序，影響他人權益或集會之進行。",
+    "未經同意偷窺並散播他人訊息或文件。",
+    "賭博行為，情節輕微。",
+    "未遵守道路交通安全規則，經糾正仍未改正或情節重大。",
+    "毆打他人，情節輕微。",
+    "攜帶或使用違法或違禁物品，屢勸仍再犯且情節尚非重大。",
+    "竊盜行為，情節輕微。",
+    "不假離校(宿舍)外出。",
+    "不服從師長或糾察隊或幹部因執行公務之糾正，情節重大。",
+    "違反學校校園行動載具使用管理規範，情節重大。",
+    "吸菸、嚼檳榔、飲用酒類或其他有礙身心健康之物品，情節輕微。",
+    "蓄意規避公共服務，並影響他人，情節輕微。",
+    "違反試場規則，情節輕微。",
+    "性騷擾或性霸凌行為屬實，情節輕微。",
+    "霸凌行為屬實，情節輕微。",
+    "閱覽有害身心健康之媒體資訊，情節輕微。",
+    "塗改點名單、請假單、成績單或其他資料。",
+    "出入禁止未滿十八歲進入之場所。",
+    "偽造、變造家長文書或偽造、盜用家長印章、印文或署押。",
+  ],
+  大過: [
+    "集體械鬥情節重大。",
+    "言行涉及公然侮辱、誹謗或恐嚇，情節重大。",
+    "聚集校外人士到校滋事。",
+    "勒索威脅。",
+    "故意毀損公物，情節重大。",
+    "違反著作權法，情節重大。",
+    "言行涉及違反公共秩序或引起社會輿情，情節重大。",
+    "散播他人訊息，致影響他人身心健康或名譽受損。",
+    "賭博行為，情節重大。",
+    "樹立幫派或參加不良組織。",
+    "攜帶或使用違法或禁物品，涉及公共安全且情節重大。",
+    "竊盜行為，情節重大。",
+    "違反毒品危害防制條例，經查明屬實。",
+    "吸菸、嚼檳榔、飲用酒類或其他有礙身心健康之物品，情節重大。",
+    "蓄意規避公共服務並煽動他人，嚴重影響公共事務。",
+    "違反試場規則，情節重大。",
+    "性侵害、性騷擾或性霸凌行為屬實，情節重大。",
+    "霸凌行為屬實，情節重大。",
+    "閱覽有害身心健康之媒體資訊，屢勸仍再犯且情節重大。",
+  ],
+  特別處罰: [
+    "在校期間獎懲相抵後滿三大過者。",
+    "參加或組織不良幫派，屢勸不聽者。",
+    "故意損毀國旗者。",
+    "故意不尊敬國家元首者。",
+    "違反政府法令情節重大者。",
+    "集體械鬥或打傷他人情節重大者。",
+    "竊盜行為情節重大者。",
+    "反抗師長，情節重大者。",
+    "其他特別不良行為。",
+  ],
+};
 
-            const toggleStudent = (student) => {
-<!-- ... existing code ... -->
-            const handleRewardSubmit = () => {
-                if (aiRewardCategory === "無") {
-                    alert("已確認無須懲處，紀錄保留在試算表即可。");
-                    resetForm();
-                    return;
-                }
+const GIRLS_LIST = [
+  "1-楊子青","2-魏寧妤","3-吳紫妍","4-張子琦","5-林愷昕","6-徐莉婕","7-江凱璇",
+  "8-黃喜苓","9-譚日晰","10-魏千紜","11-賴品汝","12-林芊亞","13-江嘉純","14-王潔心",
+];
+const BOYS_LIST = [
+  "15-林暐倫","16-温家亮","17-蘇楦紘","18-趙毅亮","19-王長綸","20-周楹家",
+  "21-李至昇","22-廖雲旭","23-林秉昇","24-邱子瀚","25-陳奕銨","26-林汶謙",
+  "27-賴雨陞","28-姚天裕","29-施澄昊",
+];
+const CONTACT_OPTIONS = ["學生","爸爸","媽媽","阿公","阿嬤"];
+const INTERVIEWER_OPTIONS = ["導師","專輔","生教","學務主任","科任老師","資源班老師"];
+const PERIOD_OPTIONS = ["早修","第一節","第二節","第三節","第四節","午休","第五節","第六節","第七節","第八節"];
+const TIME_OPTIONS = ["上課前","上課期間","下課後"];
+const METHOD_OPTIONS = ["電話訪談","個別訪談","家庭訪視","團體輔導"];
 
-                const studentsToProcess = isWholeClass ? [...GIRLS_LIST, ...BOYS_LIST] : selectedStudents;
-                const selectParam = studentsToProcess.map(student => {
-                    const id = student.split('-')[0];
-                    return `${classCode}-${id}`;
-                }).join(',');
+const getCurrentPeriodAndTime = () => {
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  if (mins < 450) return { p: "早修", t: "上課前" };
+  if (mins < 480) return { p: "早修", t: "上課期間" };
+  if (mins < 495) return { p: "早修", t: "下課後" };
+  if (mins < 540) return { p: "第一節", t: "上課期間" };
+  if (mins < 550) return { p: "第一節", t: "下課後" };
+  if (mins < 595) return { p: "第二節", t: "上課期間" };
+  if (mins < 605) return { p: "第二節", t: "下課後" };
+  if (mins < 650) return { p: "第三節", t: "上課期間" };
+  if (mins < 660) return { p: "第三節", t: "下課後" };
+  if (mins < 705) return { p: "第四節", t: "上課期間" };
+  if (mins < 720) return { p: "第四節", t: "下課後" };
+  if (mins < 780) return { p: "午休", t: "上課期間" };
+  if (mins < 790) return { p: "午休", t: "下課後" };
+  if (mins < 835) return { p: "第五節", t: "上課期間" };
+  if (mins < 845) return { p: "第五節", t: "下課後" };
+  if (mins < 890) return { p: "第六節", t: "上課期間" };
+  if (mins < 900) return { p: "第六節", t: "下課後" };
+  if (mins < 945) return { p: "第七節", t: "上課期間" };
+  if (mins < 960) return { p: "第七節", t: "下課後" };
+  if (mins < 1005) return { p: "第八節", t: "上課期間" };
+  return { p: "第八節", t: "下課後" };
+};
 
-                const TYPE_MAPPING = {
-                    "嘉獎": "merit",
-                    "警告": "warning",
-                    "小過": "minorDemerit",
-                    "大過": "majorDemerit",
-                    "特別處罰": "special"
-                };
-                const typeParam = TYPE_MAPPING[aiRewardCategory] || "";
+const TYPE_MAPPING = {
+  嘉獎: "merit", 警告: "warning", 小過: "minorDemerit", 大過: "majorDemerit", 特別處罰: "special",
+};
 
-                let clauseIndex = REWARD_RULES[aiRewardCategory]?.indexOf(aiRewardClause);
-                if (clauseIndex === undefined || clauseIndex === -1) {
-                    clauseIndex = REWARD_RULES[aiRewardCategory]?.findIndex(rule => rule.includes(aiRewardClause) || aiRewardClause.includes(rule));
-                }
-                const clauseParam = (clauseIndex !== undefined && clauseIndex !== -1) ? (clauseIndex + 1) : "";
+const CATEGORY_COLORS = {
+  嘉獎: "bg-green-100 text-green-700",
+  警告: "bg-yellow-100 text-yellow-700",
+  小過: "bg-orange-100 text-orange-700",
+  大過: "bg-red-100 text-red-700",
+  特別處罰: "bg-purple-100 text-purple-700",
+};
 
-                const noteParam = encodeURIComponent(aiRewardNote);
+export default function App() {
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [isWholeClass, setIsWholeClass] = useState(false);
+  const [isStudentListExpanded, setIsStudentListExpanded] = useState(true);
+  const [behaviorText, setBehaviorText] = useState("");
+  const [summaryText, setSummaryText] = useState("");
+  const [selectedContacts, setSelectedContacts] = useState([CONTACT_OPTIONS[0]]);
+  const [selectedInterviewer, setSelectedInterviewer] = useState(INTERVIEWER_OPTIONS[0]);
+  const textareaRef = useRef(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewWeekStart, setViewWeekStart] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [selectedPeriod, setSelectedPeriod] = useState(getCurrentPeriodAndTime().p);
+  const [selectedTime, setSelectedTime] = useState(getCurrentPeriodAndTime().t);
+  const [selectedMethod, setSelectedMethod] = useState("個別訪談");
+  const [recordCategory, setRecordCategory] = useState("日常表現");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [gasUrl, setGasUrl] = useState("https://script.google.com/macros/s/AKfycbykbyUihDBPDWSOfGs-GBRl79xzKfXEAW5YhAkIQb6x3AB7_h0qQQn_D4X447tO-CVFWw/exec");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [classCode, setClassCode] = useState("805");
+  const [showRewardPrompt, setShowRewardPrompt] = useState(false);
+  const [isAnalyzingReward, setIsAnalyzingReward] = useState(false);
+  const [showRewardConfirm, setShowRewardConfirm] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiRewardCategory, setAiRewardCategory] = useState("無");
+  const [aiRewardClause, setAiRewardClause] = useState("");
+  const [aiRewardNote, setAiRewardNote] = useState("");
 
-                const targetUrl = `https://susi-st.github.io/rnp/?select=${selectParam}&type=${typeParam}&clause=${clauseParam}&note=${noteParam}`;
+  const weekDays = [...Array(7)].map((_, i) => {
+    const d = new Date(viewWeekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
 
-                window.open(targetUrl, '_blank');
-                
-                resetForm();
-            };
+  const [isExporting, setIsExporting] = useState(false);
 
-            // ================= 雲端匯出邏輯 =================
-            const handleExportCSV = async () => {
-                if (!gasUrl) {
-                    alert("請先點擊右上角「設定」填寫您的 Google Apps Script 網址！");
-                    setShowSettings(true);
-                    return;
-                }
+  // ===== 匯出 CSV 功能 =====
+  const handleExport = async () => {
+    if (!gasUrl) {
+      alert("請先至「設定」填寫 Google Apps Script 網址！");
+      setShowSettings(true);
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const response = await fetch(gasUrl, { method: "GET" });
+      if (!response.ok) throw new Error("網路請求失敗，狀態碼：" + response.status);
+      const json = await response.json();
+      if (json.status !== "success") throw new Error(json.message || "GAS 回傳錯誤");
 
-                setIsExporting(true); // 顯示 Loading 畫面
+      const rawRecords = json.data; // 試算表原始資料
 
-                try {
-                    // 發送 GET 請求到 GAS 抓取試算表資料
-                    // 注意：Google Apps Script 的 GET 請求有時會因為瀏覽器快取而抓到舊資料，
-                    // 這裡加上一個隨機的時間戳記參數 (?t=...) 強制瀏覽器抓取最新版本。
-                    const fetchUrl = `${gasUrl}?t=${new Date().getTime()}`;
-                    
-                    const response = await fetch(fetchUrl, {
-                        method: "GET",
-                    });
+      // 學生完整名單，依座號順序
+      const allStudents = [...GIRLS_LIST, ...BOYS_LIST];
 
-                    if (!response.ok) {
-                        throw new Error(`網路回應異常 (狀態碼: ${response.status})`);
-                    }
+      // 工具：將試算表中的 targetStudent 欄位解析成「名字」以便比對
+      // 試算表格式：「座號-姓名」如 "38-王大明"；名單格式：「座號-姓名」如 "1-楊子青"
+      // 比對邏輯：先嘗試完整比對，再比對姓名部分（去掉座號前綴），再比對座號
+      const matchStudentFromSheet = (targetStudentCell) => {
+        const cell = String(targetStudentCell || "").trim();
+        if (cell === "全班") return "全班";
 
-                    const jsonResult = await response.json();
+        // 直接完整比對名單
+        if (allStudents.includes(cell)) return cell;
 
-                    if (jsonResult.status !== "success" || !jsonResult.data) {
-                        throw new Error(jsonResult.message || "讀取資料失敗，請確認 GAS 程式碼是否更新並重新部署");
-                    }
+        // 取出試算表欄位中的「姓名」部分（"-" 後面的字串）
+        const cellName = cell.includes('-') ? cell.split('-').slice(1).join('-') : cell;
+        // 取出試算表欄位中的「座號」部分
+        const cellId = cell.includes('-') ? cell.split('-')[0] : "";
 
-                    const cloudHistory = jsonResult.data;
+        // 用座號比對名單
+        if (cellId) {
+          const byId = allStudents.find(s => s.split('-')[0] === cellId);
+          if (byId) return byId;
+        }
+        // 用姓名比對名單
+        if (cellName) {
+          const byName = allStudents.find(s => s.split('-').slice(1).join('-') === cellName);
+          if (byName) return byName;
+        }
+        return null; // 無法比對
+      };
 
-                    if (cloudHistory.length === 0) {
-                        alert("目前 Google 試算表中沒有任何資料可供匯出！");
-                        setIsExporting(false);
-                        return;
-                    }
+      // 工具：格式化日期為 YYYY-MM-DD
+      const formatDate = (raw) => {
+        if (!raw) return "";
+        const s = String(raw).trim();
+        // 已是 YYYY-MM-DD 格式
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        // YYYY/MM/DD 格式
+        if (/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replace(/\//g, '-');
+        // 嘗試 Date 解析
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        return s;
+      };
 
-                    const allStudents = [...GIRLS_LIST, ...BOYS_LIST];
-                    const grouped = {};
-                    allStudents.forEach(s => grouped[s] = []);
+      // 工具：CSV 欄位加引號與逸出
+      const csvCell = (val) => {
+        const s = String(val == null ? "" : val);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      };
 
-                    // 分類資料：以個別學生為主鍵匯整
-                    cloudHistory.forEach(record => {
-                        // 處理「全班」的情況 (可能在舊記錄中存在)
-                        if (record.targetStudent === "全班") {
-                            allStudents.forEach(s => grouped[s].push(record));
-                        } 
-                        else if (grouped[record.targetStudent]) {
-                            // 資料吻合 (例如 "12-王小明")
-                            grouped[record.targetStudent].push(record);
-                        } 
-                        else {
-                            // 舊記錄可能是只有名字沒有座號 (例如 "王小明")，需要去反查
-                            const matchedStudent = allStudents.find(s => s.endsWith(record.targetStudent));
-                            if (matchedStudent) {
-                                grouped[matchedStudent].push(record);
-                            }
-                        }
-                    });
+      // 展開全班紀錄 → 每位學生各一筆
+      const expandedRecords = [];
+      for (const rec of rawRecords) {
+        const matched = matchStudentFromSheet(rec.targetStudent);
+        if (matched === "全班") {
+          // 全班：每位學生都複製一筆
+          for (const student of allStudents) {
+            expandedRecords.push({ ...rec, _resolvedStudent: student });
+          }
+        } else if (matched) {
+          expandedRecords.push({ ...rec, _resolvedStudent: matched });
+        }
+        // 無法比對的列直接略過
+      }
 
-                    let csvContent = "\uFEFF"; // 加入 BOM 讓 Excel 正確顯示中文
-                    csvContent += "座號,學生姓名,建檔日期,建檔時間,記錄分類,訪談方式,訪談者,聯絡對象,連絡事項,內容要點\n";
+      // 依學生名單順序排序，同一學生內依日期排序
+      expandedRecords.sort((a, b) => {
+        const idxA = allStudents.indexOf(a._resolvedStudent);
+        const idxB = allStudents.indexOf(b._resolvedStudent);
+        if (idxA !== idxB) return idxA - idxB;
+        return String(a.date).localeCompare(String(b.date));
+      });
 
-                    const escapeCSV = (str) => {
-                        if (str === null || str === undefined) return '""';
-                        const stringified = String(str);
-                        return `"${stringified.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
-                    };
+      // 建立 CSV 內容
+      // 欄位順序：日期, 訪談者, 連絡對象, 連絡事項, 內容要點, 訪談方式
+      const headers = ["日期", "訪談者", "連絡對象", "連絡事項", "內容要點", "訪談方式"];
+      const rows = [headers.map(csvCell).join(',')];
+      for (const rec of expandedRecords) {
+        rows.push([
+          csvCell(formatDate(rec.date)),
+          csvCell(rec.interviewer),
+          csvCell(rec.contactString),
+          csvCell(rec.summary),
+          csvCell(rec.content),
+          csvCell(rec.method),
+        ].join(','));
+      }
 
-                    // 依照原始名單順序進行匯出
-                    allStudents.forEach(student => {
-                        const records = grouped[student];
-                        if (records && records.length > 0) {
-                            
-                            // 按照 timestamp 的字串形式進行排序 (確保同一個人的紀錄照時間順序排)
-                            records.sort((a, b) => {
-                                const timeA = String(a.timestamp || "");
-                                const timeB = String(b.timestamp || "");
-                                return timeA.localeCompare(timeB);
-                            });
+      const csvContent = "\uFEFF" + rows.join('\n'); // 加 BOM 確保 Excel 正確顯示中文
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+      link.href = url;
+      link.download = `學生生活表現紀錄_${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-                            const [id, name] = student.split('-'); // 取出座號與姓名
-                            
-                            records.forEach(r => {
-                                // 由於 timestamp 可能包含日期+時間，這裡嘗試取出單純的時間部分供獨立欄位使用
-                                let rTime = "";
-                                if (r.timestamp) {
-                                    const parts = r.timestamp.split(' ');
-                                    rTime = parts.length > 1 ? parts[1] : r.timestamp;
-                                }
+      alert(`匯出完成！共匯出 ${expandedRecords.length} 筆紀錄。`);
+    } catch (err) {
+      console.error("匯出失敗", err);
+      alert("匯出失敗：" + err.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  // =========================
 
-                                csvContent += `${escapeCSV(id)},${escapeCSV(name)},${escapeCSV(r.date)},${escapeCSV(rTime)},${escapeCSV(r.category)},${escapeCSV(r.method)},${escapeCSV(r.interviewer)},${escapeCSV(r.contactString)},${escapeCSV(r.summary)},${escapeCSV(r.content)}\n`;
-                            });
-                        }
-                    });
+  const resetForm = () => {
+    setSelectedStudents([]);
+    setIsWholeClass(false);
+    setBehaviorText("");
+    setSummaryText("");
+    setSelectedContacts([CONTACT_OPTIONS[0]]);
+    setSelectedInterviewer(INTERVIEWER_OPTIONS[0]);
+    setSelectedDate(new Date());
+    const t = getCurrentPeriodAndTime();
+    setSelectedPeriod(t.p);
+    setSelectedTime(t.t);
+    setSelectedMethod("個別訪談");
+    setRecordCategory("日常表現");
+    setShowRewardPrompt(false);
+    setShowRewardConfirm(false);
+    setAiSuggestions([]);
+    setAiRewardNote("");
+  };
 
-                    // 觸發下載
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const link = document.createElement("a");
-                    const url = URL.createObjectURL(blob);
-                    link.setAttribute("href", url);
-                    link.setAttribute("download", `學生行為紀錄雲端匯總_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+  const toggleStudent = (student) => {
+    if (isWholeClass) setIsWholeClass(false);
+    setSelectedStudents(prev =>
+      prev.includes(student) ? prev.filter(s => s !== student) : [...prev, student]
+    );
+  };
 
-                } catch (e) {
-                    console.error(e);
-                    alert("匯出發生錯誤：\n" + e.message + "\n\n請確認您的 GAS 有實作 doGet() 函式，並已建立「新版本」部署。");
-                } finally {
-                    setIsExporting(false); // 隱藏 Loading 畫面
-                }
-            };
-            // ===============================================
+  const toggleWholeClass = () => {
+    const newVal = !isWholeClass;
+    setIsWholeClass(newVal);
+    if (newVal) { setSelectedStudents([]); setSelectedMethod("團體輔導"); }
+  };
 
-            const displayStudents = [...GIRLS_LIST, ...BOYS_LIST];
+  const toggleContact = (c) => {
+    setSelectedContacts(prev =>
+      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
+    );
+  };
 
-            return (
-                <div className="h-screen w-full bg-gray-100 flex flex-col font-sans overflow-hidden relative">
-                    {/* 全局 Loading 遮罩 (匯出資料中) */}
-                    {isExporting && (
-                        <div className="absolute inset-0 z-[60] bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm">
-                            <svg className="animate-spin h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <span className="text-lg font-bold tracking-widest">從雲端讀取資料中...</span>
+  const handleAddContext = () => {
+    const d = selectedDate;
+    const dayStr = ['日','一','二','三','四','五','六'][d.getDay()];
+    const insertText = `${d.getMonth()+1}/${d.getDate()}(${dayStr})${selectedPeriod}${selectedTime}`;
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newText = behaviorText.substring(0, start) + insertText + behaviorText.substring(end);
+      setBehaviorText(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + insertText.length, start + insertText.length);
+      }, 0);
+    } else {
+      setBehaviorText(prev => prev + insertText);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!behaviorText.trim()) { alert("請先輸入內容要點！"); return; }
+    if (!geminiApiKey) {
+      alert("請先至「設定」輸入 Gemini API Key 才能使用 AI 自動生成功能！\n（作為替代，已自動為您擷取前 15 個字）");
+      setSummaryText(behaviorText.length > 15 ? behaviorText.substring(0, 15) + '...' : behaviorText);
+      return;
+    }
+    setIsSummarizing(true);
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: `請將以下學生行為紀錄，濃縮成 15 個字以內的極簡短聯絡事項摘要，不要有引言、不要標點符號結尾：\n\n${behaviorText}` }] }] })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        let summary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        summary = summary.replace(/^["']|["']$/g, '');
+        setSummaryText(summary);
+      } else { alert("AI 生成失敗，請檢查 API Key 或網路連線。"); }
+    } catch (e) { alert("連線到 AI 服務時發生錯誤。"); }
+    finally { setIsSummarizing(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (!gasUrl) { alert("請先點擊右上角「設定」填寫您的 Google Apps Script 網址！"); setShowSettings(true); return; }
+    if (selectedStudents.length === 0 && !isWholeClass) { alert("請選擇至少一位學生或全班！"); return; }
+    if (!selectedMethod) { alert("請選擇訪談方式！"); return; }
+    if (!behaviorText.trim()) { alert("請輸入內容要點！"); return; }
+    setIsSubmitting(true);
+    try {
+      let finalSummary = summaryText.trim();
+      if (!finalSummary) finalSummary = behaviorText.length > 15 ? behaviorText.substring(0, 15) + '...' : behaviorText;
+      const today = new Date();
+      const formattedDate = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+      const timestamp = today.toLocaleString('zh-TW', { hour12: false });
+      const contactString = selectedContacts.map(c => c === "學生" ? "學生本人" : c).join('、');
+      const studentsToProcess = isWholeClass ? ["全班"] : selectedStudents;
+      const records = studentsToProcess.map(student => ({
+        timestamp, targetStudent: student, date: formattedDate,
+        interviewer: selectedInterviewer, contactString, summary: finalSummary,
+        content: behaviorText, method: selectedMethod, category: recordCategory
+      }));
+      const response = await fetch(gasUrl, { method: "POST", body: JSON.stringify(records) });
+      if (response.ok) { setShowRewardPrompt(true); }
+      else { alert("傳送失敗，請檢查網址或網路狀態。"); }
+    } catch (error) { alert("傳送發生錯誤：" + error.message); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleAnalyzeReward = async () => {
+    if (!geminiApiKey) { alert("請先至「設定」輸入 Gemini API Key，才能使用 AI 獎懲判定功能！"); resetForm(); return; }
+    setShowRewardPrompt(false);
+    setIsAnalyzingReward(true);
+    try {
+      const prompt = `你現在是學校的學務處生教組長。請根據下方【學生行為紀錄】，完成兩項任務並以 JSON 陣列回傳：
+任務 1. 從【獎懲條款清單】中選出 1 到 4 條「符合」的規定供決策者挑選。
+   - 允許多重條款：若符合「同一種類」的「多項不同條款」，請分別列出。
+   - 排序與預選：依「最合適程度」由高到低排序。
+   - 若無合適條文，類別請填「無」，條款請填寫「無合適的獎懲條文」。
+任務 2. 提取重點(時、地、人、事、物)，形成「具體事蹟」字串 (JSON中的 note 欄位)。
+   - 規定：必須用小括號包起，且括號前面「不要」加任何標點符號或其他文字。
+   - 範例：(第四節下課在走廊與同學起衝突並毆打他人致傷)
+請務必以 JSON 陣列格式回傳。格式範例：[{"category": "警告", "clause": "參加公眾或團體活動等...", "note": "(第四節下課)"}]
+【學生行為紀錄】：${behaviorText}
+【獎懲條款清單】：${JSON.stringify(REWARD_RULES)}`;
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generationConfig: { responseMimeType: "application/json" }, contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        let cleanJson = resultText;
+        const match = resultText.match(/\[.*\]/s);
+        if (match) cleanJson = match[0];
+        const suggestions = JSON.parse(cleanJson);
+        if (Array.isArray(suggestions) && suggestions.length > 0) {
+          setAiSuggestions(suggestions);
+          setAiRewardCategory(suggestions[0].category || "無");
+          setAiRewardClause(suggestions[0].clause || "無合適的獎懲條文");
+          setAiRewardNote(suggestions[0].note || "");
+        } else { throw new Error("AI未回傳有效的陣列"); }
+      } else { alert("AI 分析失敗，請稍後手動處理。"); resetForm(); return; }
+    } catch (e) {
+      setAiSuggestions([]);
+      setAiRewardCategory("無");
+      setAiRewardClause("無合適的獎懲條文");
+      setAiRewardNote("擷取失敗，請手動輸入");
+    } finally {
+      setIsAnalyzingReward(false);
+      setShowRewardConfirm(true);
+    }
+  };
+
+  const handleRewardSubmit = () => {
+    if (aiRewardCategory === "無") { alert("已確認無須懲處，紀錄保留在試算表即可。"); resetForm(); return; }
+    const studentsToProcess = isWholeClass ? [...GIRLS_LIST, ...BOYS_LIST] : selectedStudents;
+    const selectParam = studentsToProcess.map(s => `${classCode}-${s.split('-')[0]}`).join(',');
+    const typeParam = TYPE_MAPPING[aiRewardCategory] || "";
+    let clauseIndex = REWARD_RULES[aiRewardCategory]?.indexOf(aiRewardClause);
+    if (clauseIndex === undefined || clauseIndex === -1) {
+      clauseIndex = REWARD_RULES[aiRewardCategory]?.findIndex(r => r.includes(aiRewardClause) || aiRewardClause.includes(r));
+    }
+    const clauseParam = (clauseIndex !== undefined && clauseIndex !== -1) ? (clauseIndex + 1) : "";
+    const noteParam = encodeURIComponent(aiRewardNote);
+    window.open(`https://susi-st.github.io/rnp/?select=${selectParam}&type=${typeParam}&clause=${clauseParam}&note=${noteParam}`, '_blank');
+    resetForm();
+  };
+
+  const displayStudents = [...GIRLS_LIST, ...BOYS_LIST];
+  const DAY_LABELS = ['日','一','二','三','四','五','六'];
+
+  return (
+    <div style={{ height: '100vh', width: '100%', backgroundColor: '#f3f4f6', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, -apple-system, sans-serif', overflow: 'hidden', position: 'relative' }}>
+
+      {/* Loading overlay */}
+      {isAnalyzingReward && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+          <div style={{ width: 40, height: 40, border: '4px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: 16 }} />
+          <span style={{ fontSize: 18, fontWeight: 'bold', letterSpacing: '0.1em' }}>AI 正為您比對獎懲條文中...</span>
+        </div>
+      )}
+
+      {/* showRewardPrompt Modal */}
+      {showRewardPrompt && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: 24, width: '100%', maxWidth: 360 }}>
+            <div style={{ width: 48, height: 48, background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="24" height="24" fill="none" stroke="#22c55e" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h3 style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>紀錄已存入試算表！</h3>
+            <p style={{ textAlign: 'center', fontSize: 14, color: '#4b5563', marginBottom: 24 }}>您是否需要讓 AI 根據剛剛的紀錄，自動比對並建議適合的「獎懲條款」？</p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={resetForm} style={{ flex: 1, padding: '12px 0', background: '#e5e7eb', borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: 15 }}>不用了</button>
+              <button onClick={handleAnalyzeReward} style={{ flex: 1, padding: '12px 0', background: '#4f46e5', color: 'white', borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: 15 }}>是，請 AI 判斷</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* showRewardConfirm Modal */}
+      {showRewardConfirm && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: 20, width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 22 }}>⚖️</span>
+              <h3 style={{ fontWeight: 'bold', fontSize: 18, margin: 0 }}>AI 獎懲建議確認</h3>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
+              {aiSuggestions.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#4338ca', marginBottom: 8 }}>💡 建議選項 (點選卡片切換)</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {aiSuggestions.map((sug, idx) => {
+                      const isSelected = aiRewardCategory === sug.category && aiRewardClause === sug.clause;
+                      return (
+                        <div key={idx} onClick={() => { setAiRewardCategory(sug.category); setAiRewardClause(sug.clause); if (sug.note) setAiRewardNote(sug.note); }}
+                          style={{ padding: 12, border: isSelected ? '1.5px solid #6366f1' : '1.5px solid #e5e7eb', borderRadius: 12, cursor: 'pointer', background: isSelected ? '#eef2ff' : 'white' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 'bold', ...(sug.category === "嘉獎" ? { background: '#dcfce7', color: '#15803d' } : sug.category === "警告" ? { background: '#fef9c3', color: '#a16207' } : sug.category === "小過" ? { background: '#ffedd5', color: '#c2410c' } : sug.category === "大過" ? { background: '#fee2e2', color: '#b91c1c' } : sug.category === "特別處罰" ? { background: '#f3e8ff', color: '#7e22ce' } : { background: '#f3f4f6', color: '#374151' }) }}>
+                              {sug.category}
+                            </span>
+                            {isSelected && <svg style={{ marginLeft: 'auto' }} width="16" height="16" fill="#4f46e5" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>}
+                          </div>
+                          <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{sug.clause}</div>
                         </div>
-                    )}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <hr style={{ flex: 1, borderColor: '#e5e7eb' }} />
+                <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 'bold' }}>手動微調</span>
+                <hr style={{ flex: 1, borderColor: '#e5e7eb' }} />
+              </div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 'bold', color: '#4b5563', marginBottom: 4 }}>獎懲種類</label>
+              <select value={aiRewardCategory} onChange={e => { setAiRewardCategory(e.target.value); setAiRewardClause(e.target.value === "無" ? "無合適的獎懲條文" : (REWARD_RULES[e.target.value]?.[0] || "")); }}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 8, marginBottom: 12, fontSize: 14, background: '#f9fafb' }}>
+                <option value="無">無 / 不懲處</option>
+                <option value="嘉獎">嘉獎</option>
+                <option value="警告">警告</option>
+                <option value="小過">小過</option>
+                <option value="大過">大過</option>
+                <option value="特別處罰">特別處罰</option>
+              </select>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 'bold', color: '#4b5563', marginBottom: 4 }}>適用條款</label>
+              {aiRewardCategory === "無" ? (
+                <input type="text" disabled value="無合適的獎懲條文" style={{ width: '100%', padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 8, fontSize: 13, background: '#f3f4f6', color: '#9ca3af', boxSizing: 'border-box' }} />
+              ) : (
+                <select value={aiRewardClause} onChange={e => setAiRewardClause(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 8, marginBottom: 8, fontSize: 13, background: '#f9fafb', lineHeight: 1.5 }}>
+                  {REWARD_RULES[aiRewardCategory] && !REWARD_RULES[aiRewardCategory].includes(aiRewardClause) && (
+                    <option value={aiRewardClause}>[AI 原始建議] {aiRewardClause}</option>
+                  )}
+                  {REWARD_RULES[aiRewardCategory]?.map(rule => <option key={rule} value={rule}>{rule}</option>)}
+                </select>
+              )}
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 'bold', color: '#4b5563', marginBottom: 4, marginTop: 8 }}>具體事蹟 (將送至獎懲系統)</label>
+              <textarea value={aiRewardNote} onChange={e => setAiRewardNote(e.target.value)} rows={2} placeholder="例如：(上課玩手機)"
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, background: '#f9fafb', resize: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 12, paddingTop: 12, borderTop: '1px solid #f3f4f6' }}>
+              <button onClick={resetForm} style={{ flex: 1, padding: '12px 0', background: '#e5e7eb', borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: 14 }}>取消放棄</button>
+              <button onClick={handleRewardSubmit} style={{ flex: 1, padding: '12px 0', background: '#16a34a', color: 'white', borderRadius: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: 14 }}>確認並送出</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-                    {/* 全局 Loading 遮罩 (AI 獎懲判斷時) */}
-                    {isAnalyzingReward && (
-<!-- ... existing code ... -->
-                            <button onClick={handleSaveUrl} className="w-full bg-green-500 text-white py-2 rounded font-bold mt-2 shadow">
-                                儲存設定
-                            </button>
+      {/* Top Nav */}
+      <div style={{ background: '#2563eb', color: 'white', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 'bold' }}>學生生活表現紀錄</h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            style={{
+              background: isExporting ? '#374151' : '#065f46',
+              border: 'none', color: 'white',
+              padding: '4px 12px', borderRadius: 6, fontSize: 14,
+              cursor: isExporting ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 4,
+              opacity: isExporting ? 0.7 : 1,
+              transition: 'background 0.15s',
+            }}
+          >
+            {isExporting ? (
+              <>
+                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                匯出中
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                匯出
+              </>
+            )}
+          </button>
+          <button onClick={() => setShowSettings(!showSettings)} style={{ background: '#1d4ed8', border: 'none', color: 'white', padding: '4px 12px', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>設定</button>
+        </div>
+      </div>
 
-                            {/* 移除舊版的「清除本機紀錄」按鈕，因為現在資料都從雲端抓取了，不再需要清理本機快取 */}
-                        </div>
-                    )}
+      {/* Settings Panel */}
+      {showSettings && (
+        <div style={{ background: 'white', padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderBottom: '1px solid #e5e7eb', zIndex: 10, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[
+            { label: 'Google Apps Script 網址', value: gasUrl, setter: setGasUrl, ph: '貼上您的 Web App URL...', hint: null },
+            { label: 'Gemini API Key', value: geminiApiKey, setter: setGeminiApiKey, ph: '貼上您的 API Key...', hint: '(啟用 AI 自動摘要與獎懲判定)' },
+            { label: '班級代號', value: classCode, setter: setClassCode, ph: '例如：805', hint: '(用於獎懲系統串接)' },
+          ].map(({ label, value, setter, ph, hint }) => (
+            <div key={label}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <label style={{ fontSize: 14, fontWeight: '500', color: '#374151' }}>{label}</label>
+                {hint && <span style={{ fontSize: 12, color: '#6b7280' }}>{hint}</span>}
+              </div>
+              <input type="text" value={value} onChange={e => setter(e.target.value)} placeholder={ph}
+                style={{ width: '100%', border: '1px solid #d1d5db', padding: '8px', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+          ))}
+          <button onClick={() => { localStorage.setItem('gasUrl', gasUrl); localStorage.setItem('geminiApiKey', geminiApiKey); localStorage.setItem('classCode', classCode); setShowSettings(false); alert("設定已儲存！"); }}
+            style={{ background: '#22c55e', color: 'white', padding: '8px 0', borderRadius: 6, fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: 15, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            儲存設定
+          </button>
+        </div>
+      )}
 
-                    {/* 主體滾動區域 */}
-<!-- ... existing code ... -->
+      {/* Main scroll area */}
+      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
+
+        {/* Student selector */}
+        <div style={{ padding: 12, background: 'white', borderBottom: '2px solid #d1d5db' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 'bold', color: '#4b5563' }}>目標學生 (可多選)</h2>
+            <button onClick={() => setIsStudentListExpanded(!isStudentListExpanded)}
+              style={{ width: 20, height: 20, borderRadius: '50%', background: '#e5e7eb', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563' }}>
+              {isStudentListExpanded ? '−' : '+'}
+            </button>
+          </div>
+          {isStudentListExpanded && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {displayStudents.map(student => {
+                const isBoy = BOYS_LIST.includes(student);
+                const isSelected = selectedStudents.includes(student) && !isWholeClass;
+                const [, name] = student.split('-');
+                const masked = name ? name[0] + '○' + name.substring(2) : student;
+                return (
+                  <button key={student} onClick={() => toggleStudent(student)}
+                    style={{ padding: '6px 8px', borderRadius: 8, fontSize: 13, fontWeight: '500', cursor: 'pointer', border: '1px solid', transition: 'all 0.15s',
+                      background: isSelected ? (isBoy ? '#3b82f6' : '#ec4899') : (isBoy ? '#eff6ff' : '#fdf2f8'),
+                      color: isSelected ? 'white' : (isBoy ? '#1e3a8a' : '#831843'),
+                      borderColor: isSelected ? (isBoy ? '#2563eb' : '#db2777') : (isBoy ? '#bfdbfe' : '#fbcfe8'),
+                    }}>
+                    {masked}
+                  </button>
+                );
+              })}
+              <button onClick={toggleWholeClass}
+                style={{ padding: '6px 8px', borderRadius: 8, fontSize: 13, fontWeight: '500', cursor: 'pointer', border: '1px solid', transition: 'all 0.15s',
+                  background: isWholeClass ? '#7c3aed' : '#faf5ff', color: isWholeClass ? 'white' : '#5b21b6', borderColor: isWholeClass ? '#6d28d9' : '#ddd6fe' }}>
+                全班
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Form area */}
+        <div style={{ padding: 12, background: '#f9fafb', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Contact & Interviewer */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 'bold', color: '#4b5563' }}>聯絡對象</span>
+              {CONTACT_OPTIONS.map(c => (
+                <button key={c} onClick={() => toggleContact(c)}
+                  style={{ padding: '6px 12px', borderRadius: 999, fontSize: 14, fontWeight: '500', cursor: 'pointer', border: '1px solid', transition: 'all 0.15s',
+                    background: selectedContacts.includes(c) ? '#22c55e' : 'white', color: selectedContacts.includes(c) ? 'white' : '#374151',
+                    borderColor: selectedContacts.includes(c) ? '#16a34a' : '#d1d5db' }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 'bold', color: '#4b5563' }}>訪談者</span>
+              <select value={selectedInterviewer} onChange={e => setSelectedInterviewer(e.target.value)}
+                style={{ padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6, background: 'white', fontSize: 14 }}>
+                {INTERVIEWER_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Week Calendar */}
+          <div style={{ background: 'white', padding: '8px 4px 12px', borderRadius: 12, border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+              <button onClick={() => { const d = new Date(viewWeekStart); d.setDate(d.getDate()-7); setViewWeekStart(d); }}
+                style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}>
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+              </button>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', padding: '0 4px' }}>
+                {weekDays.map(date => {
+                  const dow = date.getDay() || 7;
+                  const isSel = date.toDateString() === selectedDate.toDateString();
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  return (
+                    <div key={date.toISOString()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 'bold', color: dow === 6 ? '#22c55e' : dow === 7 ? '#ef4444' : '#6b7280' }}>{DAY_LABELS[date.getDay()]}</span>
+                      <button onClick={() => setSelectedDate(new Date(date))}
+                        style={{ width: 28, height: 28, borderRadius: '50%', border: !isSel && isToday ? '2px solid #93c5fd' : 'none', cursor: 'pointer', fontSize: 13, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: isSel ? '#3b82f6' : 'transparent', color: isSel ? 'white' : dow === 6 ? '#16a34a' : dow === 7 ? '#dc2626' : '#374151' }}>
+                        {date.getDate()}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <button onClick={() => { const d = new Date(viewWeekStart); d.setDate(d.getDate()+7); setViewWeekStart(d); }}
+                style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}>
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <h2 style={{ margin: 0, fontSize: 14, fontWeight: 'bold', color: '#4b5563' }}>內容要點</h2>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <select value={selectedPeriod} onChange={e => setSelectedPeriod(e.target.value)}
+                  style={{ fontSize: 12, padding: '4px', border: '1px solid #d1d5db', borderRadius: 6, background: 'white' }}>
+                  {PERIOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <select value={selectedTime} onChange={e => setSelectedTime(e.target.value)}
+                  style={{ fontSize: 12, padding: '4px', border: '1px solid #d1d5db', borderRadius: 6, background: 'white' }}>
+                  {TIME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <button onClick={handleAddContext}
+                  style={{ background: '#3b82f6', color: 'white', fontSize: 12, padding: '6px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                  加入指定日期時間
+                </button>
+              </div>
+            </div>
+            <textarea ref={textareaRef} value={behaviorText} onChange={e => setBehaviorText(e.target.value)}
+              placeholder="請輸入內容要點... (利用上方按鈕可插入時間到游標處)"
+              style={{ width: '100%', padding: 12, border: '1px solid #d1d5db', borderRadius: 8, resize: 'none', fontSize: 16, lineHeight: 1.6, minHeight: 120, boxSizing: 'border-box', outline: 'none' }} />
+          </div>
+
+          {/* Summary */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+            <button onClick={handleGenerateSummary} disabled={isSummarizing || !behaviorText.trim()}
+              style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: 'none', cursor: (!isSummarizing && behaviorText.trim()) ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap',
+                background: (isSummarizing || !behaviorText.trim()) ? '#d1d5db' : 'linear-gradient(to right, #a855f7, #6366f1)', color: (isSummarizing || !behaviorText.trim()) ? '#9ca3af' : 'white' }}>
+              {isSummarizing ? '✨ AI 思考中...' : '✨ 生成連絡事項'}
+            </button>
+            <input type="text" value={summaryText} onChange={e => setSummaryText(e.target.value)}
+              placeholder="點選左側按鈕由 AI 生成，或在此手動輸入..."
+              style={{ flex: 1, padding: '8px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, minWidth: 160, outline: 'none' }} />
+          </div>
+
+          {/* Method, Category, Submit */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 'bold', color: '#4b5563', whiteSpace: 'nowrap' }}>訪談方式</span>
+              {METHOD_OPTIONS.map(m => (
+                <button key={m} onClick={() => setSelectedMethod(m)}
+                  style={{ padding: '6px 12px', borderRadius: 999, fontSize: 14, fontWeight: '500', cursor: 'pointer', border: '1px solid', transition: 'all 0.15s',
+                    background: selectedMethod === m ? '#6366f1' : 'white', color: selectedMethod === m ? 'white' : '#374151',
+                    borderColor: selectedMethod === m ? '#4f46e5' : '#d1d5db' }}>
+                  {m.substring(0, 2)}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 'bold', color: '#4b5563', whiteSpace: 'nowrap' }}>記錄分類</span>
+              <div onClick={() => setRecordCategory(prev => prev === "日常表現" ? "輔導訪談" : "日常表現")}
+                style={{ display: 'flex', alignItems: 'center', background: '#e5e7eb', borderRadius: 999, padding: 2, cursor: 'pointer', userSelect: 'none' }}>
+                {['日常表現', '輔導訪談'].map(cat => (
+                  <div key={cat} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 'bold', transition: 'all 0.15s',
+                    background: recordCategory === cat ? (cat === '日常表現' ? '#3b82f6' : '#a855f7') : 'transparent',
+                    color: recordCategory === cat ? 'white' : '#6b7280' }}>
+                    {cat}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button onClick={handleSubmit} disabled={isSubmitting}
+              style={{ width: '100%', padding: '16px 0', marginTop: 4, borderRadius: 12, fontSize: 18, fontWeight: 'bold', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transition: 'transform 0.1s',
+                background: isSubmitting ? '#9ca3af' : '#2563eb', color: isSubmitting ? '#d1d5db' : 'white' }}>
+              {isSubmitting ? '傳送資料中...' : '完　成'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
