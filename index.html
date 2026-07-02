@@ -1,516 +1,22 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <!-- 針對手機最佳化，防止使用者點擊時畫面放大縮小 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>學生生活表現紀錄 APP</title>
-
-    <!-- 載入 Tailwind CSS (用於介面排版與美化) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- 載入 React 核心庫 -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-    <!-- 載入 Babel (讓瀏覽器看得懂 JSX 語法) -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <style>
-        /* 處理 iOS 底部安全區域 (Safe Area) */
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-        body { margin: 0; padding: 0; background-color: #f3f4f6; }
-    </style>
-</head>
-<body>
-    <!-- React APP 將會渲染在這裡 -->
-    <div id="root"></div>
-
-    <!-- 程式碼主體 -->
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // ================= 獎懲條文知識庫 =================
-        const REWARD_RULES = {
-            "嘉獎": [
-                "服裝儀容經常整潔，合於規定，足為同學模範者。",
-                "禮儀周到足為同學模範者。",
-                "參加團體活動確有成績表現者。",
-                "節儉樸素足為同學模範者。",
-                "與同學互助合作者。",
-                "值勤特別盡職者。",
-                "主動為公服務者。",
-                "勸告同學向善者。",
-                "運動比賽時體育道德表現優良者。",
-                "領導同學為團體服務者。",
-                "愛護公物有具體事蹟者。",
-                "生活言行較前進步，有事實表現者。",
-                "在車船上讓座師長、老弱、婦孺者。",
-                "其他優良行為合於記嘉獎者。"
-            ],
-            "警告": [
-                "參加公眾或團體活動等，影響活動秩序、活動進行或他人權益，情節輕微。",
-                "言行涉及公然侮辱、誹謗或恐嚇，情節輕微。",
-                "拾物不送招領，據為己有，情節輕微。",
-                "值勤未盡職責，影響他人權益或工作之推動。",
-                "因過失毀損公物而不主動報告。",
-                "故意毀損公物，情節輕微。",
-                "違反著作權法，情節輕微。",
-                "在公共場所高聲喧嚷影響秩序。",
-                "未經同意偷窺他人訊息或文件，情節輕微。",
-                "未遵守道路交通安全規則，情節輕微。",
-                "違反上課規定，影響教學秩序或他人學習，屢勸不聽。",
-                "攜帶或使用違法或違禁物品，情節輕微。",
-                "亂丟垃圾或其他破壞環境衛生行為，經勸導仍未改正。",
-                "以不實言論誤導師長，致未能妥善處理事件。",
-                "不服從師長或糾察隊或幹部因執行公務之糾正，情節輕微。",
-                "違反學校校園行動載具使用管理規範，情節輕微。"
-            ],
-            "小過": [
-                "參加公眾或團體活動，影響活動秩序，經勸導仍未改正。",
-                "言行涉及公然侮辱、誹謗或恐嚇，經糾正仍未改正。",
-                "拾物不送招領，據為己有，情節重大。",
-                "擔任班級幹部未盡職責，影響工作推展，情節重大。",
-                "故意毀損公物，屢勸仍再犯且情節尚非重大。",
-                "違反著作權法，屢勸仍再犯且情節尚非重大。",
-                "蓄意違反集會秩序，影響他人權益或集會之進行。",
-                "未經同意偷窺並散播他人訊息或文件。",
-                "賭博行為，情節輕微。",
-                "未遵守道路交通安全規則，經糾正仍未改正或情節重大。",
-                "毆打他人，情節輕微。",
-                "攜帶或使用違法或違禁物品，屢勸仍再犯且情節尚非重大。",
-                "竊盜行為，情節輕微。",
-                "不假離校(宿舍)外出。",
-                "不服從師長或糾察隊或幹部因執行公務之糾正，情節重大。",
-                "違反學校校園行動載具使用管理規範，情節重大。",
-                "吸菸、嚼檳榔、飲用酒類或其他有礙身心健康之物品，情節輕微。",
-                "蓄意規避公共服務，並影響他人，情節輕微。",
-                "違反試場規則，情節輕微。",
-                "性騷擾或性霸凌行為屬實，情節輕微。",
-                "霸凌行為屬實，情節輕微。",
-                "閱覽有害身心健康之媒體資訊，情節輕微。",
-                "塗改點名單、請假單、成績單或其他資料。",
-                "出入禁止未滿十八歲進入之場所。",
-                "偽造、變造家長文書或偽造、盜用家長印章、印文或署押。"
-            ],
-            "大過": [
-                "集體械鬥情節重大。",
-                "言行涉及公然侮辱、誹謗或恐嚇，情節重大。",
-                "聚集校外人士到校滋事。",
-                "勒索威脅。",
-                "故意毀損公物，情節重大。",
-                "違反著作權法，情節重大。",
-                "言行涉及違反公共秩序或引起社會輿情，情節重大。",
-                "散播他人訊息，致影響他人身心健康或名譽受損。",
-                "賭博行為，情節重大。",
-                "樹立幫派或參加不良組織。",
-                "攜帶或使用違法或禁物品，涉及公共安全且情節重大。",
-                "竊盜行為，情節重大。",
-                "違反毒品危害防制條例，經查明屬實。",
-                "吸菸、嚼檳榔、飲用酒類或其他有礙身心健康之物品，情節重大。",
-                "蓄意規避公共服務並煽動他人，嚴重影響公共事務。",
-                "違反試場規則，情節重大。",
-                "性侵害、性騷擾或性霸凌行為屬實，情節重大。",
-                "霸凌行為屬實，情節重大。",
-                "閱覽有害身心健康之媒體資訊，屢勸仍再犯且情節重大。"
-            ],
-            "特別處罰": [
-                "在校期間獎懲相抵後滿三大過者。",
-                "參加或組織不良幫派，屢勸不聽者。",
-                "故意損毀國旗者。",
-                "故意不尊敬國家元首者。",
-                "違反政府法令情節重大者。",
-                "集體械鬥或打傷他人情節重大者。",
-                "竊盜行為情節重大者。",
-                "反抗師長，情節重大者。",
-                "其他特別不良行為。"
-            ]
-        };
-        // ===================================================
-
-        // 將學生名單分為女生與男生 (已加入座號，格式為 "座號-姓名")
-        const GIRLS_LIST = [
-            "1-楊子青", "2-魏寧妤", "3-吳紫妍", "4-張子琦", "5-林愷昕", "6-徐莉婕", "7-江凱璇", 
-            "8-黃喜苓", "9-譚日晰", "10-魏千紜", "11-賴品汝", "12-林芊亞", "13-江嘉純", "14-王潔心"
-        ];
-
-        const BOYS_LIST = [
-            "15-林暐倫", "16-温家亮", "17-蘇楦紘", "18-趙毅亮", "19-王長綸", "20-周楹家", 
-            "21-李至昇", "22-廖雲旭", "23-林秉昇", "24-邱子瀚", "25-陳奕銨", "26-林汶謙", 
-            "27-賴雨陞", "28-姚天裕", "29-施澄昊"
-        ];
-
-        const CONTACT_OPTIONS = ["學生", "爸爸", "媽媽", "阿公", "阿嬤"];
-        const INTERVIEWER_OPTIONS = ["導師", "專輔", "生教", "學務主任", "科任老師", "資源班老師"];
-        
-        const PERIOD_OPTIONS = ["早修", "第一節", "第二節", "第三節", "第四節", "午休", "第五節", "第六節", "第七節", "第八節"];
-        const TIME_OPTIONS = ["上課前", "上課期間", "下課後"];
-        
-        const METHOD_OPTIONS = ["電話訪談", "個別訪談", "家庭訪視", "團體輔導"];
-
-        const getCurrentPeriodAndTime = () => {
-            const now = new Date();
-            const mins = now.getHours() * 60 + now.getMinutes();
-
-            if (mins < 450) return { p: "早修", t: "上課前" };      
-            if (mins < 480) return { p: "早修", t: "上課期間" };    
-            if (mins < 495) return { p: "早修", t: "下課後" };      
-            if (mins < 540) return { p: "第一節", t: "上課期間" };  
-            if (mins < 550) return { p: "第一節", t: "下課後" };    
-            if (mins < 595) return { p: "第二節", t: "上課期間" };  
-            if (mins < 605) return { p: "第二節", t: "下課後" };    
-            if (mins < 650) return { p: "第三節", t: "上課期間" };  
-            if (mins < 660) return { p: "第三節", t: "下課後" };    
-            if (mins < 705) return { p: "第四節", t: "上課期間" };  
-            if (mins < 720) return { p: "第四節", t: "下課後" };    
-            if (mins < 780) return { p: "午休", t: "上課期間" };    
-            if (mins < 790) return { p: "午休", t: "下課後" };      
-            if (mins < 835) return { p: "第五節", t: "上課期間" };  
-            if (mins < 845) return { p: "第五節", t: "下課後" };    
-            if (mins < 890) return { p: "第六節", t: "上課期間" };  
-            if (mins < 900) return { p: "第六節", t: "下課後" };    
-            if (mins < 945) return { p: "第七節", t: "上課期間" };  
-            if (mins < 960) return { p: "第七節", t: "下課後" };    
-            if (mins < 1005) return { p: "第八節", t: "上課期間" }; 
-            return { p: "第八節", t: "下課後" };                    
-        };
-
-        function App() {
-            const [selectedStudents, setSelectedStudents] = useState([]);
-            const [isWholeClass, setIsWholeClass] = useState(false);
-            const [isStudentListExpanded, setIsStudentListExpanded] = useState(true);
-            
-            const [behaviorText, setBehaviorText] = useState("");
-            const [summaryText, setSummaryText] = useState("");
-            const [selectedContacts, setSelectedContacts] = useState([CONTACT_OPTIONS[0]]);
-            const [selectedInterviewer, setSelectedInterviewer] = useState(INTERVIEWER_OPTIONS[0]);
-            
-            const textareaRef = useRef(null);
-
-            const [selectedDate, setSelectedDate] = useState(new Date());
-            const [viewWeekStart, setViewWeekStart] = useState(() => {
-                const d = new Date();
-                const day = d.getDay();
-                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-                d.setDate(diff);
-                d.setHours(0, 0, 0, 0);
-                return d;
-            });
-
-            const [selectedPeriod, setSelectedPeriod] = useState(getCurrentPeriodAndTime().p); 
-            const [selectedTime, setSelectedTime] = useState(getCurrentPeriodAndTime().t);     
-
-            const [selectedMethod, setSelectedMethod] = useState("個別訪談");
-            const [recordCategory, setRecordCategory] = useState("日常表現");
-
-            const weekDays = [...Array(7)].map((_, i) => {
-                const d = new Date(viewWeekStart);
-                d.setDate(d.getDate() + i);
-                return d;
-            });
-
-            const handlePrevWeek = () => {
-                const newStart = new Date(viewWeekStart);
-                newStart.setDate(newStart.getDate() - 7);
-                setViewWeekStart(newStart);
-            };
-
-            const handleNextWeek = () => {
-                const newStart = new Date(viewWeekStart);
-                newStart.setDate(newStart.getDate() + 7);
-                setViewWeekStart(newStart);
-            };
-
-            const handleAddContext = () => {
-                const d = selectedDate;
-                const dayStr = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-                const insertText = `${d.getMonth() + 1}/${d.getDate()}(${dayStr})${selectedPeriod}${selectedTime}`;
-                
-                const textarea = textareaRef.current;
-                if (textarea) {
-                    const start = textarea.selectionStart;
-                    const end = textarea.selectionEnd;
-                    const newText = behaviorText.substring(0, start) + insertText + behaviorText.substring(end);
-                    setBehaviorText(newText);
-                    
-                    setTimeout(() => {
-                        textarea.focus();
-                        textarea.setSelectionRange(start + insertText.length, start + insertText.length);
-                    }, 0);
-                } else {
-                    setBehaviorText(prev => prev + insertText);
-                }
-            };
-
-            const [isSubmitting, setIsSubmitting] = useState(false);
-            const [showSettings, setShowSettings] = useState(false);
-            
+<!-- ... existing code ... -->
             const [gasUrl, setGasUrl] = useState("https://script.google.com/macros/s/AKfycbykbyUihDBPDWSOfGs-GBRl79xzKfXEAW5YhAkIQb6x3AB7_h0qQQn_D4X447tO-CVFWw/exec");
             const [geminiApiKey, setGeminiApiKey] = useState("");
-            const [classCode, setClassCode] = useState("805"); // 新增：班級代號狀態
+            const [classCode, setClassCode] = useState("805");
             const [isSummarizing, setIsSummarizing] = useState(false);
+            const [isExporting, setIsExporting] = useState(false); // 新增：控制匯出時的 Loading 狀態
 
             // ================= 獎懲系統狀態 =================
-            const [showRewardPrompt, setShowRewardPrompt] = useState(false);
-            const [isAnalyzingReward, setIsAnalyzingReward] = useState(false);
-            const [showRewardConfirm, setShowRewardConfirm] = useState(false);
-            const [aiSuggestions, setAiSuggestions] = useState([]);               // 儲存 AI 建議的陣列
-            const [aiRewardCategory, setAiRewardCategory] = useState("無");
-            const [aiRewardClause, setAiRewardClause] = useState("");
-            const [aiRewardNote, setAiRewardNote] = useState("");                 // 新增：儲存 AI 提取的具體事蹟
-            // ===============================================
-
-            useEffect(() => {
-                const savedUrl = localStorage.getItem('gasUrl');
-                if (savedUrl) setGasUrl(savedUrl);
-                const savedKey = localStorage.getItem('geminiApiKey');
-                if (savedKey) setGeminiApiKey(savedKey);
-                const savedClassCode = localStorage.getItem('classCode'); // 讀取班級代號
-                if (savedClassCode) setClassCode(savedClassCode);
-            }, []);
-
+<!-- ... existing code ... -->
             const handleSaveUrl = () => {
                 localStorage.setItem('gasUrl', gasUrl);
                 localStorage.setItem('geminiApiKey', geminiApiKey);
-                localStorage.setItem('classCode', classCode); // 儲存班級代號
+                localStorage.setItem('classCode', classCode);
                 setShowSettings(false);
                 alert("設定已儲存！");
             };
 
             const toggleStudent = (student) => {
-                if (isWholeClass) setIsWholeClass(false);
-                if (selectedStudents.includes(student)) {
-                    setSelectedStudents(selectedStudents.filter(s => s !== student));
-                } else {
-                    setSelectedStudents([...selectedStudents, student]);
-                }
-            };
-
-            const toggleWholeClass = () => {
-                const newValue = !isWholeClass;
-                setIsWholeClass(newValue);
-                if (newValue) {
-                    setSelectedStudents([]);
-                    setSelectedMethod("團體輔導");
-                }
-            };
-
-            const toggleContact = (contact) => {
-                if (selectedContacts.includes(contact)) {
-                    setSelectedContacts(selectedContacts.filter(c => c !== contact));
-                } else {
-                    setSelectedContacts([...selectedContacts, contact]);
-                }
-            };
-
-            const resetForm = () => {
-                setSelectedStudents([]);
-                setIsWholeClass(false);
-                setBehaviorText("");
-                setSummaryText("");
-                setSelectedContacts([CONTACT_OPTIONS[0]]);
-                setSelectedInterviewer(INTERVIEWER_OPTIONS[0]);
-                setSelectedDate(new Date());
-                const currentTime = getCurrentPeriodAndTime();
-                setSelectedPeriod(currentTime.p);
-                setSelectedTime(currentTime.t);
-                setSelectedMethod("個別訪談");
-                setRecordCategory("日常表現");
-                setShowRewardPrompt(false);
-                setShowRewardConfirm(false);
-                setAiSuggestions([]);
-                setAiRewardNote(""); // 新增：重置具體事蹟
-            };
-
-            const handleGenerateSummary = async () => {
-                if (!behaviorText.trim()) {
-                    alert("請先輸入內容要點！");
-                    return;
-                }
-                if (!geminiApiKey) {
-                    alert("請先至「設定」輸入 Gemini API Key 才能使用 AI 自動生成功能！\n（作為替代，已自動為您擷取前 15 個字）");
-                    setSummaryText(behaviorText.length > 15 ? behaviorText.substring(0, 15) + '...' : behaviorText);
-                    return;
-                }
-
-                setIsSummarizing(true);
-                try {
-                    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: `請將以下學生行為紀錄，濃縮成 15 個字以內的極簡短聯絡事項摘要，不要有引言、不要標點符號結尾：\n\n${behaviorText}` }] }]
-                        })
-                    });
-                    if (aiResponse.ok) {
-                        const data = await aiResponse.json();
-                        let summary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-                        summary = summary.replace(/^["']|["']$/g, ''); 
-                        setSummaryText(summary); 
-                    } else {
-                        alert("AI 生成失敗，請檢查 API Key 或網路連線。");
-                    }
-                } catch (e) {
-                    console.error("AI 摘要失敗", e);
-                    alert("連線到 AI 服務時發生錯誤。");
-                } finally {
-                    setIsSummarizing(false);
-                }
-            };
-
-            const handleSubmit = async () => {
-                if (!gasUrl) {
-                    alert("請先點擊右上角「設定」填寫您的 Google Apps Script 網址！");
-                    setShowSettings(true);
-                    return;
-                }
-                if (selectedStudents.length === 0 && !isWholeClass) {
-                    alert("請選擇至少一位學生或全班！");
-                    return;
-                }
-                if (!selectedMethod) {
-                    alert("請選擇訪談方式！");
-                    return;
-                }
-                if (!behaviorText.trim()) {
-                    alert("請輸入內容要點！");
-                    return;
-                }
-
-                setIsSubmitting(true);
-
-                try {
-                    let finalSummary = summaryText.trim();
-                    if (!finalSummary) {
-                        finalSummary = behaviorText.length > 15 ? behaviorText.substring(0, 15) + '...' : behaviorText;
-                    }
-
-                    const today = new Date();
-                    const formattedDate = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
-                    const timestamp = today.toLocaleString('zh-TW', { hour12: false });
-
-                    const formattedContacts = selectedContacts.map(c => c === "學生" ? "學生本人" : c);
-                    const contactString = formattedContacts.join('、');
-
-                    const records = [];
-                    const studentsToProcess = isWholeClass ? ["全班"] : selectedStudents;
-
-                    studentsToProcess.forEach(student => {
-                        records.push({
-                            timestamp: timestamp,
-                            targetStudent: student,
-                            date: formattedDate,
-                            interviewer: selectedInterviewer,
-                            contactString: contactString,
-                            summary: finalSummary,
-                            content: behaviorText,
-                            method: selectedMethod,
-                            category: recordCategory
-                        });
-                    });
-
-                    const response = await fetch(gasUrl, {
-                        method: "POST",
-                        body: JSON.stringify(records),
-                    });
-
-                    if (response.ok) {
-                        // 新增：將紀錄存入本機端，供後續匯出使用
-                        try {
-                            const history = JSON.parse(localStorage.getItem('recordsHistory') || '[]');
-                            const newHistory = [...history, ...records];
-                            localStorage.setItem('recordsHistory', JSON.stringify(newHistory));
-                        } catch (e) {
-                            console.error("儲存本機紀錄失敗", e);
-                        }
-
-                        setShowRewardPrompt(true);
-                    } else {
-                        alert("傳送失敗，請檢查網址或網路狀態。");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    alert("傳送發生錯誤：" + error.message);
-                } finally {
-                    setIsSubmitting(false);
-                }
-            };
-
-            // ================= 多重獎懲判定邏輯 =================
-            const handleAnalyzeReward = async () => {
-                if (!geminiApiKey) {
-                    alert("請先至「設定」輸入 Gemini API Key，才能使用 AI 獎懲判定功能！");
-                    resetForm();
-                    return;
-                }
-                setShowRewardPrompt(false);
-                setIsAnalyzingReward(true);
-
-                try {
-                    const prompt = `你現在是學校的學務處生教組長。請根據下方【學生行為紀錄】，完成兩項任務並以 JSON 陣列回傳：
-                    任務 1. 從【獎懲條款清單】中選出 1 到 4 條「符合」的規定供決策者挑選。
-                       - 允許多重條款：若符合「同一種類」的「多項不同條款」，請分別列出。
-                       - 排序與預選：依「最合適程度」由高到低排序。第一項優先推薦較輕的處分；除非紀錄中明確提到「累犯/屢勸不聽/態度不佳」或「情節嚴重/導致受傷」，才將較重的處分排在第一位。
-                       - 若無合適條文，類別請填「無」，條款請填寫「無合適的獎懲條文」。
-                    任務 2. 提取重點(時、地、人、事、物)，形成「具體事蹟」字串 (JSON中的 note 欄位)。
-                       - 規定：必須用小括號包起，且括號前面「不要」加任何標點符號或其他文字。
-                       - 範例：(第四節下課在走廊與同學起衝突並毆打他人致傷)
-
-                    請務必以 JSON 陣列 (Array) 格式回傳。
-                    格式範例：[{"category": "警告", "clause": "參加公眾或團體活動等...", "note": "(第四節下課在走廊與同學起衝突)"}, {"category": "小過", "clause": "毆打他人，情節輕微。", "note": "(第四節下課在走廊與同學起衝突毆打他人致傷且態度不佳)"}]
-                    
-                    【學生行為紀錄】：
-                    ${behaviorText}
-
-                    【獎懲條款清單】：
-                    ${JSON.stringify(REWARD_RULES)}
-                    `;
-
-                    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            generationConfig: { responseMimeType: "application/json" }, // 要求嚴格回傳 JSON
-                            contents: [{ parts: [{ text: prompt }] }]
-                        })
-                    });
-
-                    if (aiResponse.ok) {
-                        const data = await aiResponse.json();
-                        const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                        
-                        // 清理可能包含的 Markdown 標籤並解析 JSON
-                        let cleanJson = resultText;
-                        const match = resultText.match(/\[.*\]/s); // 擷取陣列部分
-                        if (match) cleanJson = match[0];
-                        
-                        const suggestions = JSON.parse(cleanJson);
-                        
-                        if (Array.isArray(suggestions) && suggestions.length > 0) {
-                            setAiSuggestions(suggestions);
-                            setAiRewardCategory(suggestions[0].category || "無");
-                            setAiRewardClause(suggestions[0].clause || "無合適的獎懲條文");
-                            setAiRewardNote(suggestions[0].note || ""); // 設定提取的事蹟
-                        } else {
-                            throw new Error("AI未回傳有效的陣列");
-                        }
-                    } else {
-                        alert("AI 分析失敗，請稍後手動處理。");
-                        resetForm();
-                        return;
-                    }
-                } catch (e) {
-                    console.error("獎懲分析失敗", e);
-                    setAiSuggestions([]);
-                    setAiRewardCategory("無");
-                    setAiRewardClause("無合適的獎懲條文");
-                    setAiRewardNote("擷取失敗，請手動輸入");
-                } finally {
-                    setIsAnalyzingReward(false);
-                    setShowRewardConfirm(true);
-                }
-            };
-
+<!-- ... existing code ... -->
             const handleRewardSubmit = () => {
                 if (aiRewardCategory === "無") {
                     alert("已確認無須懲處，紀錄保留在試算表即可。");
@@ -518,15 +24,12 @@
                     return;
                 }
 
-                // 1. 處理參數 select：班級代號-座號，多筆用逗號分隔
-                // 如果是全班，就抓取男女生名單中所有人的座號
                 const studentsToProcess = isWholeClass ? [...GIRLS_LIST, ...BOYS_LIST] : selectedStudents;
                 const selectParam = studentsToProcess.map(student => {
-                    const id = student.split('-')[0]; // 從 "12-王小明" 提取 "12"
+                    const id = student.split('-')[0];
                     return `${classCode}-${id}`;
                 }).join(',');
 
-                // 2. 處理參數 type：種類代碼對應
                 const TYPE_MAPPING = {
                     "嘉獎": "merit",
                     "警告": "warning",
@@ -536,32 +39,56 @@
                 };
                 const typeParam = TYPE_MAPPING[aiRewardCategory] || "";
 
-                // 3. 處理參數 clause：條款編號 (陣列索引 + 1)
                 let clauseIndex = REWARD_RULES[aiRewardCategory]?.indexOf(aiRewardClause);
-                // 若因為 AI 生成文字些微差異導致找不到，嘗試使用部分包含來比對
                 if (clauseIndex === undefined || clauseIndex === -1) {
                     clauseIndex = REWARD_RULES[aiRewardCategory]?.findIndex(rule => rule.includes(aiRewardClause) || aiRewardClause.includes(rule));
                 }
                 const clauseParam = (clauseIndex !== undefined && clauseIndex !== -1) ? (clauseIndex + 1) : "";
 
-                // 4. 處理參數 note：具體行為 (改用 AI 提取的具體事蹟，經過 URI 編碼)
                 const noteParam = encodeURIComponent(aiRewardNote);
 
-                // 5. 組合最終網址
                 const targetUrl = `https://susi-st.github.io/rnp/?select=${selectParam}&type=${typeParam}&clause=${clauseParam}&note=${noteParam}`;
 
-                // 6. 開啟新分頁前往獎懲系統
                 window.open(targetUrl, '_blank');
                 
                 resetForm();
             };
 
-            // ================= 匯出與歷史紀錄管理邏輯 =================
-            const handleExportCSV = () => {
+            // ================= 雲端匯出邏輯 =================
+            const handleExportCSV = async () => {
+                if (!gasUrl) {
+                    alert("請先點擊右上角「設定」填寫您的 Google Apps Script 網址！");
+                    setShowSettings(true);
+                    return;
+                }
+
+                setIsExporting(true); // 顯示 Loading 畫面
+
                 try {
-                    const history = JSON.parse(localStorage.getItem('recordsHistory') || '[]');
-                    if (history.length === 0) {
-                        alert("目前沒有任何本機紀錄可供匯出！\n（請先送出資料，系統會自動在手機端保留備份供匯出使用）");
+                    // 發送 GET 請求到 GAS 抓取試算表資料
+                    // 注意：Google Apps Script 的 GET 請求有時會因為瀏覽器快取而抓到舊資料，
+                    // 這裡加上一個隨機的時間戳記參數 (?t=...) 強制瀏覽器抓取最新版本。
+                    const fetchUrl = `${gasUrl}?t=${new Date().getTime()}`;
+                    
+                    const response = await fetch(fetchUrl, {
+                        method: "GET",
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`網路回應異常 (狀態碼: ${response.status})`);
+                    }
+
+                    const jsonResult = await response.json();
+
+                    if (jsonResult.status !== "success" || !jsonResult.data) {
+                        throw new Error(jsonResult.message || "讀取資料失敗，請確認 GAS 程式碼是否更新並重新部署");
+                    }
+
+                    const cloudHistory = jsonResult.data;
+
+                    if (cloudHistory.length === 0) {
+                        alert("目前 Google 試算表中沒有任何資料可供匯出！");
+                        setIsExporting(false);
                         return;
                     }
 
@@ -570,17 +97,21 @@
                     allStudents.forEach(s => grouped[s] = []);
 
                     // 分類資料：以個別學生為主鍵匯整
-                    history.forEach(record => {
+                    cloudHistory.forEach(record => {
+                        // 處理「全班」的情況 (可能在舊記錄中存在)
                         if (record.targetStudent === "全班") {
-                            // 若當初選全班，則派發給所有人
                             allStudents.forEach(s => grouped[s].push(record));
-                        } else if (grouped[record.targetStudent]) {
-                            // 多位學生的紀錄在送出時就已經拆分為獨立物件，這裡直接歸類即可
+                        } 
+                        else if (grouped[record.targetStudent]) {
+                            // 資料吻合 (例如 "12-王小明")
                             grouped[record.targetStudent].push(record);
-                        } else {
-                            // 防呆機制
-                            if (!grouped[record.targetStudent]) grouped[record.targetStudent] = [];
-                            grouped[record.targetStudent].push(record);
+                        } 
+                        else {
+                            // 舊記錄可能是只有名字沒有座號 (例如 "王小明")，需要去反查
+                            const matchedStudent = allStudents.find(s => s.endsWith(record.targetStudent));
+                            if (matchedStudent) {
+                                grouped[matchedStudent].push(record);
+                            }
                         }
                     });
 
@@ -588,9 +119,8 @@
                     csvContent += "座號,學生姓名,建檔日期,建檔時間,記錄分類,訪談方式,訪談者,聯絡對象,連絡事項,內容要點\n";
 
                     const escapeCSV = (str) => {
-                        if (!str) return '""';
+                        if (str === null || str === undefined) return '""';
                         const stringified = String(str);
-                        // 替換換行符號為空白，並處理逗號與引號
                         return `"${stringified.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
                     };
 
@@ -598,18 +128,24 @@
                     allStudents.forEach(student => {
                         const records = grouped[student];
                         if (records && records.length > 0) {
-                            // 個人資料以時間排序 (解析 timestamp 進行比對)
+                            
+                            // 按照 timestamp 的字串形式進行排序 (確保同一個人的紀錄照時間順序排)
                             records.sort((a, b) => {
-                                const tA = new Date(a.timestamp).getTime();
-                                const tB = new Date(b.timestamp).getTime();
-                                if (!isNaN(tA) && !isNaN(tB)) return tA - tB;
-                                return a.timestamp.localeCompare(b.timestamp);
+                                const timeA = String(a.timestamp || "");
+                                const timeB = String(b.timestamp || "");
+                                return timeA.localeCompare(timeB);
                             });
 
                             const [id, name] = student.split('-'); // 取出座號與姓名
                             
                             records.forEach(r => {
-                                let rTime = r.timestamp.split(' ')[1] || r.timestamp; // 嘗試單獨取出時間部分
+                                // 由於 timestamp 可能包含日期+時間，這裡嘗試取出單純的時間部分供獨立欄位使用
+                                let rTime = "";
+                                if (r.timestamp) {
+                                    const parts = r.timestamp.split(' ');
+                                    rTime = parts.length > 1 ? parts[1] : r.timestamp;
+                                }
+
                                 csvContent += `${escapeCSV(id)},${escapeCSV(name)},${escapeCSV(r.date)},${escapeCSV(rTime)},${escapeCSV(r.category)},${escapeCSV(r.method)},${escapeCSV(r.interviewer)},${escapeCSV(r.contactString)},${escapeCSV(r.summary)},${escapeCSV(r.content)}\n`;
                             });
                         }
@@ -620,20 +156,16 @@
                     const link = document.createElement("a");
                     const url = URL.createObjectURL(blob);
                     link.setAttribute("href", url);
-                    link.setAttribute("download", `學生行為紀錄匯總_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.csv`);
+                    link.setAttribute("download", `學生行為紀錄雲端匯總_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.csv`);
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
 
                 } catch (e) {
-                    alert("匯出發生錯誤：" + e.message);
-                }
-            };
-
-            const handleClearHistory = () => {
-                if(window.confirm("確定要清除手機上的所有歷史紀錄嗎？\n\n（注意：這只會清除手機裡的匯出暫存，不會影響已經送到 Google 試算表的資料）")) {
-                    localStorage.removeItem('recordsHistory');
-                    alert("本機紀錄已清除！");
+                    console.error(e);
+                    alert("匯出發生錯誤：\n" + e.message + "\n\n請確認您的 GAS 有實作 doGet() 函式，並已建立「新版本」部署。");
+                } finally {
+                    setIsExporting(false); // 隱藏 Loading 畫面
                 }
             };
             // ===============================================
@@ -642,470 +174,24 @@
 
             return (
                 <div className="h-screen w-full bg-gray-100 flex flex-col font-sans overflow-hidden relative">
-                    {/* 全局 Loading 遮罩 */}
-                    {isAnalyzingReward && (
-                        <div className="absolute inset-0 z-50 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm">
+                    {/* 全局 Loading 遮罩 (匯出資料中) */}
+                    {isExporting && (
+                        <div className="absolute inset-0 z-[60] bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm">
                             <svg className="animate-spin h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <span className="text-lg font-bold tracking-widest">AI 正為您比對獎懲條文中...</span>
+                            <span className="text-lg font-bold tracking-widest">從雲端讀取資料中...</span>
                         </div>
                     )}
 
-                    {/* 詢問是否串接獎懲系統的 Modal */}
-                    {showRewardPrompt && (
-                        <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-[scale-in_0.2s_ease-out]">
-                                <div className="w-12 h-12 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-4 mx-auto">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                                </div>
-                                <h3 className="text-lg font-bold text-center text-gray-800 mb-2">紀錄已存入試算表！</h3>
-                                <p className="text-sm text-gray-600 text-center mb-6">您是否需要讓 AI 根據剛剛的紀錄，自動比對並建議適合的「獎懲條款」？</p>
-                                <div className="flex gap-3">
-                                    <button onClick={resetForm} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300">不用了</button>
-                                    <button onClick={handleAnalyzeReward} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md">是，請 AI 判斷</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 多重選項的獎懲確認與修改 Modal */}
-                    {showRewardConfirm && (
-                        <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-sm flex flex-col max-h-[90vh]">
-                                <div className="flex items-center gap-2 mb-4 shrink-0">
-                                    <span className="text-xl">⚖️</span>
-                                    <h3 className="text-lg font-bold text-gray-800">AI 獎懲建議確認</h3>
-                                </div>
-                                
-                                <div className="flex-1 overflow-y-auto pr-1 pb-2">
-                                    {/* 顯示 AI 多個建議選項 */}
-                                    {aiSuggestions.length > 0 && (
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-bold text-indigo-700 mb-2">💡 建議選項 (點選卡片切換)</label>
-                                            <div className="flex flex-col gap-2">
-                                                {aiSuggestions.map((sug, idx) => {
-                                                    const isSelected = aiRewardCategory === sug.category && aiRewardClause === sug.clause;
-                                                    return (
-                                                        <div 
-                                                            key={idx}
-                                                            onClick={() => { 
-                                                                setAiRewardCategory(sug.category); 
-                                                                setAiRewardClause(sug.clause); 
-                                                                if(sug.note) setAiRewardNote(sug.note); // 切換卡片時一併更新事蹟
-                                                            }}
-                                                            className={`p-3 border rounded-xl cursor-pointer transition-all ${
-                                                                isSelected 
-                                                                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 shadow-sm' 
-                                                                    : 'border-gray-200 hover:bg-gray-50'
-                                                            }`}
-                                                        >
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                                                    sug.category === "嘉獎" ? "bg-green-100 text-green-700" :
-                                                                    sug.category === "警告" ? "bg-yellow-100 text-yellow-700" :
-                                                                    sug.category === "小過" ? "bg-orange-100 text-orange-700" :
-                                                                    sug.category === "大過" ? "bg-red-100 text-red-700" :
-                                                                    sug.category === "特別處罰" ? "bg-purple-100 text-purple-700" :
-                                                                    "bg-gray-100 text-gray-700"
-                                                                }`}>
-                                                                    {sug.category}
-                                                                </span>
-                                                                {isSelected && <svg className="w-4 h-4 text-indigo-600 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>}
-                                                            </div>
-                                                            <div className="text-sm text-gray-700 leading-snug">{sug.clause}</div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center gap-2 mb-3 mt-1">
-                                        <hr className="flex-1 border-gray-200" />
-                                        <span className="text-xs text-gray-400 font-bold">手動微調</span>
-                                        <hr className="flex-1 border-gray-200" />
-                                    </div>
-
-                                    <label className="block text-xs font-bold text-gray-600 mb-1">獎懲種類</label>
-                                    <select 
-                                        value={aiRewardCategory} 
-                                        onChange={(e) => {
-                                            setAiRewardCategory(e.target.value);
-                                            setAiRewardClause(e.target.value === "無" ? "無合適的獎懲條文" : (REWARD_RULES[e.target.value]?.[0] || ""));
-                                        }}
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-400 mb-3 text-sm font-medium"
-                                    >
-                                        <option value="無">無 / 不懲處</option>
-                                        <option value="嘉獎">嘉獎</option>
-                                        <option value="警告">警告</option>
-                                        <option value="小過">小過</option>
-                                        <option value="大過">大過</option>
-                                        <option value="特別處罰">特別處罰</option>
-                                    </select>
-
-                                    <label className="block text-xs font-bold text-gray-600 mb-1">適用條款</label>
-                                    {aiRewardCategory === "無" ? (
-                                        <input type="text" disabled value="無合適的獎懲條文" className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 mb-2 text-sm" />
-                                    ) : (
-                                        <select 
-                                            value={aiRewardClause}
-                                            onChange={(e) => setAiRewardClause(e.target.value)}
-                                            className="w-full p-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-400 mb-2 text-sm leading-relaxed"
-                                        >
-                                            {/* AI 可能生成稍微不同的字眼，若不在清單內，給予一個自訂選項保留 AI 的判定 */}
-                                            {REWARD_RULES[aiRewardCategory] && !REWARD_RULES[aiRewardCategory].includes(aiRewardClause) && (
-                                                <option value={aiRewardClause}>[AI 原始建議] {aiRewardClause}</option>
-                                            )}
-                                            {REWARD_RULES[aiRewardCategory]?.map(rule => (
-                                                <option key={rule} value={rule}>{rule}</option>
-                                            ))}
-                                        </select>
-                                    )}
-
-                                    {/* 新增：具體事蹟 (AI提取) */}
-                                    <label className="block text-xs font-bold text-gray-600 mb-1 mt-2">具體事蹟 (將送至獎懲系統)</label>
-                                    <textarea 
-                                        value={aiRewardNote}
-                                        onChange={(e) => setAiRewardNote(e.target.value)}
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-400 mb-2 text-sm leading-relaxed resize-none"
-                                        rows="2"
-                                        placeholder="例如：(上課玩手機)"
-                                    />
-                                </div>
-
-                                <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100 shrink-0">
-                                    <button onClick={resetForm} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300">取消放棄</button>
-                                    <button onClick={handleRewardSubmit} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-md">確認並送出</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-
-                    {/* 頂部導覽列 */}
-                    <div className="bg-blue-600 text-white p-3 flex justify-between items-center shadow-md shrink-0">
-                        <h1 className="text-lg font-bold">學生生活表現紀錄</h1>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={handleExportCSV}
-                                className="bg-emerald-500 px-3 py-1 rounded text-sm font-bold hover:bg-emerald-600 shadow transition-colors"
-                            >
-                                匯出
-                            </button>
-                            <button 
-                                onClick={() => setShowSettings(!showSettings)}
-                                className="bg-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-800 shadow transition-colors"
-                            >
-                                設定
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* 設定區塊 */}
-                    {showSettings && (
-                        <div className="bg-white p-4 shadow-md shrink-0 border-b z-10 space-y-3">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Google Apps Script 網址</label>
-                                <input 
-                                    type="text" 
-                                    value={gasUrl} 
-                                    onChange={(e) => setGasUrl(e.target.value)}
-                                    className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    placeholder="貼上您的 Web App URL..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex justify-between">
-                                    <span>Gemini API Key</span>
-                                    <span className="text-blue-500 text-xs">(啟用 AI 自動摘要與獎懲判定)</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    value={geminiApiKey} 
-                                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                                    className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    placeholder="貼上您的 API Key..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex justify-between">
-                                    <span>班級代號</span>
-                                    <span className="text-gray-500 text-xs">(用於獎懲系統串接)</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    value={classCode} 
-                                    onChange={(e) => setClassCode(e.target.value)}
-                                    className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    placeholder="例如：805"
-                                />
-                            </div>
+                    {/* 全局 Loading 遮罩 (AI 獎懲判斷時) */}
+                    {isAnalyzingReward && (
+<!-- ... existing code ... -->
                             <button onClick={handleSaveUrl} className="w-full bg-green-500 text-white py-2 rounded font-bold mt-2 shadow">
                                 儲存設定
                             </button>
 
-                            {/* 新增：清除歷史紀錄按鈕 */}
-                            <div className="mt-2 pt-3 border-t border-gray-200">
-                                <label className="block text-sm font-medium text-red-600 mb-1 flex justify-between">
-                                    <span>清除本機紀錄</span>
-                                    <span className="text-gray-500 text-xs">(釋放手機空間，不影響雲端資料)</span>
-                                </label>
-                                <button 
-                                    onClick={handleClearHistory} 
-                                    className="w-full bg-red-50 text-red-600 border border-red-300 py-2 rounded text-sm font-bold hover:bg-red-100 transition-colors"
-                                >
-                                    🗑️ 清空本機歷史資料
-                                </button>
-                            </div>
+                            {/* 移除舊版的「清除本機紀錄」按鈕，因為現在資料都從雲端抓取了，不再需要清理本機快取 */}
                         </div>
                     )}
 
                     {/* 主體滾動區域 */}
-                    <div className="flex-1 overflow-y-auto pb-safe">
-                        
-                        {/* 上半部：目標學生 */}
-                        <div className="p-3 bg-white border-b-2 border-gray-300">
-                            <div className="flex items-center gap-2 mb-2">
-                                <h2 className="text-sm font-bold text-gray-600">目標學生 (可多選)</h2>
-                                <button
-                                    onClick={() => setIsStudentListExpanded(!isStudentListExpanded)}
-                                    className="w-5 h-5 flex items-center justify-center bg-gray-200 text-gray-600 rounded-full text-sm font-bold hover:bg-gray-300 transition-colors focus:outline-none"
-                                >
-                                    {isStudentListExpanded ? '-' : '+'}
-                                </button>
-                            </div>
-
-                            {/* 學生名單展開區 */}
-                            {isStudentListExpanded && (
-                                <div className="flex flex-wrap gap-1.5 pb-1">
-                                    {displayStudents.map(student => {
-                                        const isBoy = BOYS_LIST.includes(student);
-                                        const isSelected = selectedStudents.includes(student) && !isWholeClass;
-                                        
-                                        const [id, name] = student.split('-');
-                                        const maskedName = name ? name.substring(0, 1) + '○' + name.substring(2) : student;
-                                        
-                                        return (
-                                            <button
-                                                key={student}
-                                                onClick={() => toggleStudent(student)}
-                                                className={`py-1.5 px-2 rounded-lg text-[13px] sm:text-sm font-medium tracking-tight transition-colors w-auto border ${
-                                                    isSelected
-                                                        ? (isBoy ? 'bg-blue-500 text-white border-blue-600 shadow-inner' : 'bg-pink-500 text-white border-pink-600 shadow-inner') 
-                                                        : (isBoy ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100' : 'bg-pink-50 text-pink-800 border-pink-200 hover:bg-pink-100')
-                                                }`}
-                                            >
-                                                {maskedName}
-                                            </button>
-                                        );
-                                    })}
-                                    
-                                    {/* 全班按鈕接在最後一個學生之後 */}
-                                    <button
-                                        onClick={toggleWholeClass}
-                                        className={`py-1.5 px-2 rounded-lg text-[13px] sm:text-sm font-medium tracking-tight transition-colors w-auto border ${
-                                            isWholeClass 
-                                                ? 'bg-purple-600 text-white border-purple-700 shadow-inner' 
-                                                : 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-200'
-                                        }`}
-                                    >
-                                        全班
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* 下半部：表單操作區 */}
-                        <div className="p-3 bg-gray-50 flex flex-col gap-3">
-                            
-                            {/* 1. 聯絡對象與訪談者 */}
-                            <div className="flex flex-col gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-bold text-gray-600">聯絡對象</span>
-                                    {CONTACT_OPTIONS.map(contact => (
-                                        <button
-                                            key={contact}
-                                            onClick={() => toggleContact(contact)}
-                                            className={`py-1.5 px-3 rounded-full text-sm font-medium transition-colors ${
-                                                selectedContacts.includes(contact)
-                                                    ? 'bg-green-500 text-white shadow-md'
-                                                    : 'bg-white border border-gray-300 text-gray-700'
-                                            }`}
-                                        >
-                                            {contact}
-                                        </button>
-                                    ))}
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-gray-600">訪談者</span>
-                                    <select
-                                        value={selectedInterviewer}
-                                        onChange={(e) => setSelectedInterviewer(e.target.value)}
-                                        className="py-1 px-2 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    >
-                                        {INTERVIEWER_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* 週曆元件 */}
-                            <div className="bg-white p-2 pb-3 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex items-end justify-between">
-                                    <button onClick={handlePrevWeek} className="p-1 mb-0.5 text-gray-400 hover:text-black focus:outline-none shrink-0">
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                    </button>
-                                    
-                                    <div className="flex-1 flex justify-between px-1 sm:px-3">
-                                        {weekDays.map((date, i) => {
-                                            const isSelected = date.toDateString() === selectedDate.toDateString();
-                                            const isToday = date.toDateString() === new Date().toDateString();
-                                            const dayOfWeek = date.getDay() || 7; 
-                                            const dayLabels = ['日', '一', '二', '三', '四', '五', '六', '日'];
-                                            
-                                            return (
-                                                <div key={date.toISOString()} className="flex flex-col items-center gap-1.5">
-                                                    <span className={`text-[11px] font-bold ${dayOfWeek === 6 ? 'text-green-500' : dayOfWeek === 7 ? 'text-red-500' : 'text-gray-500'}`}>
-                                                        {dayLabels[dayOfWeek]}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => setSelectedDate(date)}
-                                                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[13px] sm:text-sm font-bold transition-colors
-                                                            ${isSelected ? 'bg-blue-500 text-white shadow-md' : 'hover:bg-gray-100'}
-                                                            ${!isSelected && isToday ? 'ring-2 ring-blue-300' : ''}
-                                                            ${!isSelected && dayOfWeek === 6 ? 'text-green-600' : ''}
-                                                            ${!isSelected && dayOfWeek === 7 ? 'text-red-600' : ''}
-                                                            ${!isSelected && dayOfWeek < 6 && !isToday ? 'text-gray-700' : ''}
-                                                        `}
-                                                    >
-                                                        {date.getDate()}
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <button onClick={handleNextWeek} className="p-1 mb-0.5 text-gray-400 hover:text-black focus:outline-none shrink-0">
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* 2. 內容要點 */}
-                            <div className="flex flex-col">
-                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                    <h2 className="text-sm font-bold text-gray-600">內容要點</h2>
-                                    <div className="flex items-center gap-1 ml-auto">
-                                        <select 
-                                            value={selectedPeriod} 
-                                            onChange={(e) => setSelectedPeriod(e.target.value)} 
-                                            className="text-xs p-1 border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                        >
-                                            {PERIOD_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                        </select>
-                                        <select 
-                                            value={selectedTime} 
-                                            onChange={(e) => setSelectedTime(e.target.value)} 
-                                            className="text-xs p-1 border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                        >
-                                            {TIME_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                        </select>
-                                        <button 
-                                            onClick={handleAddContext} 
-                                            className="bg-blue-500 text-white text-xs px-2 py-1.5 rounded shadow hover:bg-blue-600 active:bg-blue-700 transition-colors font-bold whitespace-nowrap"
-                                        >
-                                            加入指定日期時間
-                                        </button>
-                                    </div>
-                                </div>
-                                <textarea
-                                    ref={textareaRef}
-                                    value={behaviorText}
-                                    onChange={(e) => setBehaviorText(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-base leading-relaxed min-h-[120px]"
-                                    placeholder="請輸入內容要點... (利用上方按鈕可插入時間到游標處)"
-                                />
-                            </div>
-
-                            {/* 連絡事項 */}
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                <button
-                                    onClick={handleGenerateSummary}
-                                    disabled={isSummarizing || !behaviorText.trim()}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold shadow transition-colors flex items-center justify-center gap-1 whitespace-nowrap w-fit ${
-                                        isSummarizing || !behaviorText.trim() 
-                                            ? 'bg-gray-300 text-gray-500' 
-                                            : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:opacity-90 active:scale-95'
-                                    }`}
-                                >
-                                    {isSummarizing ? (
-                                        <span className="flex items-center gap-1">
-                                            <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                            AI 思考中
-                                        </span>
-                                    ) : '✨ 生成連絡事項'}
-                                </button>
-                                <input
-                                    type="text"
-                                    value={summaryText}
-                                    onChange={(e) => setSummaryText(e.target.value)}
-                                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium text-gray-800"
-                                    placeholder="點選左側按鈕由 AI 生成，或在此手動輸入..."
-                                />
-                            </div>
-
-                            {/* 3. 訪談方式、記錄分類開關 & 完成按鈕 */}
-                            <div className="flex flex-col gap-3">
-                                
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-bold text-gray-600 whitespace-nowrap">訪談方式</span>
-                                    {METHOD_OPTIONS.map(method => (
-                                        <button
-                                            key={method}
-                                            onClick={() => setSelectedMethod(method)}
-                                            className={`py-1.5 px-3 rounded-full text-sm font-medium transition-colors ${
-                                                selectedMethod === method
-                                                    ? 'bg-indigo-500 text-white shadow-md'
-                                                    : 'bg-white border border-gray-300 text-gray-700'
-                                            }`}
-                                        >
-                                            {method.substring(0, 2)}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-gray-600 whitespace-nowrap">記錄分類</span>
-                                    <div 
-                                        onClick={() => setRecordCategory(prev => prev === "日常表現" ? "輔導訪談" : "日常表現")}
-                                        className="flex items-center bg-gray-200 rounded-full p-0.5 cursor-pointer select-none"
-                                    >
-                                        <div className={`px-2.5 py-1 text-xs font-bold rounded-full transition-colors ${recordCategory === "日常表現" ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500'}`}>
-                                            日常表現
-                                        </div>
-                                        <div className={`px-2.5 py-1 text-xs font-bold rounded-full transition-colors ${recordCategory === "輔導訪談" ? 'bg-purple-500 text-white shadow-md' : 'text-gray-500'}`}>
-                                            輔導訪談
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className={`w-full py-4 mt-1 rounded-xl text-lg font-bold shadow-lg transition-transform active:scale-95 ${
-                                        isSubmitting ? 'bg-gray-400 text-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700'
-                                    }`}
-                                >
-                                    {isSubmitting ? '傳送資料中...' : '完 成'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+<!-- ... existing code ... -->
